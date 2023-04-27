@@ -1,6 +1,6 @@
 {
   "name": "testnet3",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "testnet3",
   "main": "index.js",
   "scripts": {
