@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Bitcoin Testnet UTXO Lookup</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background: linear-gradient(90deg, #69b7eb, #b3dbd3, #f4d6db);
+        color: #333;
+        margin: 0;
+        padding: 0;
+      }
+      h1,
+      h2 {
+        text-align: center;
+      }
+      input,
+      button {
+        font-size: 1em;
+        padding: 0.5em;
+      }
+      .container {
+        max-width: 800px;
+        margin: 50px auto 0 auto; /* 50px top margin */
+        padding: 2em;
+        background-color: rgba(255, 255, 255, 0.9);
+        border-radius: 8px;
+      }
+      .balance {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 2em;
+      }
+      ul {
+        list-style-type: none;
+        padding: 0;
+      }
+      li {
+        margin-bottom: 1em;
+      }
+      button {
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        cursor: pointer;
+        text-align: center;
+        display: inline-block;
+        margin: 4px 2px;
+        border-radius: 16px;
+      }
+      button:hover {
+        background-color: #45a049;
+      }
+      .results {
+        display: none;
+        margin-top: 2em;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Bitcoin Testnet UTXO Lookup</h1>
+      <label for="address">Address:</label>
+      <input type="text" id="address" name="address" />
+      <button onclick="lookup()">Lookup</button>
+      <a
+        target="_blank"
+        style="text-decoration: none"
+        href="https://coinfaucet.eu/en/btc-testnet/"
+        >🔗</a
+      >
+      <div class="results">
+        <h2>
+          Unspent Transaction Outputs (UTXOs) for
+          <span id="address-span"></span>
+        </h2>
+        <div class="balance">
+          <div>
+            <strong>Confirmed Balance:</strong>
+            <span id="confirmed-balance"></span> BTC
+            <ul id="confirmed-utxos"></ul>
+          </div>
+          <div>
+            <strong>Unconfirmed Balance:</strong>
+            <span id="unconfirmed-balance"></span> BTC
+            <ul id="unconfirmed-utxos"></ul>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script>
+      function getParameterByName(name, url = window.location.href) {
+        name = name.replace(/[\[\]]/g, '\\$&')
+        const regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)')
+        const results = regex.exec(url)
+        if (!results) return null
+        if (!results[2]) return ''
+        return decodeURIComponent(results[2].replace(/\+/g, ' '))
+      }
+
+      document.addEventListener('DOMContentLoaded', () => {
+        const addressFromQueryString = getParameterByName('address')
+        if (addressFromQueryString) {
+          document.getElementById('address').value = addressFromQueryString
+          lookup()
+        }
+      })
+
+      function lookup() {
+        const address = document.getElementById('address').value
+
+        axios
+          .get(
+            `https://api.blockcypher.com/v1/btc/test3/addrs/${address}/full?limit=50&includeScript=true`
+          )
+          .then(response => {
+            const utxos = response.data.txs.filter(
+              tx => tx.double_spend === false
+            )
+            const confirmedBalance = response.data.balance / 100000000
+            const unconfirmedBalance =
+              response.data.unconfirmed_balance / 100000000
+
+            document.getElementById('address-span').textContent = address
+            document.getElementById('confirmed-balance').textContent =
+              confirmedBalance.toFixed(8)
+            document.getElementById('unconfirmed-balance').textContent =
+              unconfirmedBalance.toFixed(8)
+
+            console.log(response.data.txs)
+
+            const confirmedUtxoList = utxos
+              .filter(tx => tx.confirmations > 0)
+              .map(tx => {
+                var vout = tx.outputs.findIndex(
+                  output => output.addresses[0] === address
+                )
+                return `
+            <li>
+              <strong>Transaction ID:</strong> ${tx.hash}
+              <br>
+              <strong>Output Index:</strong> ${vout}
+              <br>
+              <strong>Amount:</strong> ${tx.outputs[vout].value} Sats
+            </li>
+          `
+              })
+
+            const unconfirmedUtxoList = utxos
+              .filter(tx => tx.confirmations === 0)
+              .map(tx => {
+                var vout = tx.outputs.findIndex(
+                  output => output.addresses[0] === address
+                )
+
+                return `
+            <li>
+              <strong>Transaction ID:</strong> ${tx.hash}
+              <br>
+              <strong>Output Index:</strong> ${vout}
+              <br>
+              <strong>Amount:</strong> ${tx.outputs[vout].value} Sats
+            </li>
+          `
+              })
+
+            document.getElementById('confirmed-utxos').innerHTML =
+              confirmedUtxoList.join('')
+            document.getElementById('unconfirmed-utxos').innerHTML =
+              unconfirmedUtxoList.join('')
+            document.querySelector('.results').style.display = 'block'
+          })
+          .catch(error => {
+            console.log(error)
+          })
+      }
+    </script>
+  </body>
+</html>
