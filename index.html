@@ -90,7 +90,58 @@
       </div>
     </div>
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
-    <script>
+    <script type="module">
+      import bech32 from 'https://cdn.skypack.dev/bech32-buffer'
+      import 'https://cdn.skypack.dev/nostr-login-shim'
+      import awaitNostr from 'https://cdn.skypack.dev/awaitnostr'
+
+      const TESTNET = {
+        messagePrefix: '\x18Bitcoin Signed Message:\n',
+        bech32: 'tb',
+        bip32: {
+          public: 0x043587cf,
+          private: 0x04358394
+        },
+        pubKeyHash: 0x6f,
+        scriptHash: 0xc4,
+        wif: 0xef
+      }
+
+      const hexToBytes = hex => {
+        return Array.from({ length: hex.length / 2 }, (_, i) =>
+          parseInt(hex.substr(i * 2, 2), 16)
+        )
+      }
+
+      /**
+       * Encode bytes into bech32 format
+       * @param {string} prefix
+       * @param {string} hex
+       * @returns {string} bech32 encoded string
+       */
+      function encodeBytes(prefix, hex) {
+        var data = hexToBytes(hex)
+        // var words = bech32.toWords(data)
+        // data = new Uint8Array(20)
+        return bech32.encode(prefix, data, 'bech32', 1500)
+      }
+
+      /**
+       * Decode bech32 encoded bytes
+       * @param {string} bech32EncodedString
+       * @returns {string} hex
+       * @throws {Error} if input is not a valid bech32 encoded string
+       */
+      function decodeBytes(bech32EncodedString) {
+        const { words } = bech32.decode(bech32EncodedString)
+        const data = bech32.fromWords(words)
+        const hex = data
+          .map(byte => byte.toString(16).padStart(2, '0'))
+          .join('')
+
+        return hex
+      }
+
       function getParameterByName(name, url = window.location.href) {
         name = name.replace(/[\[\]]/g, '\\$&')
         const regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)')
@@ -100,15 +151,7 @@
         return decodeURIComponent(results[2].replace(/\+/g, ' '))
       }
 
-      document.addEventListener('DOMContentLoaded', () => {
-        const addressFromQueryString = getParameterByName('address')
-        if (addressFromQueryString) {
-          document.getElementById('address').value = addressFromQueryString
-          lookup()
-        }
-      })
-
-      function lookup() {
+      window.lookup = function () {
         const address = document.getElementById('address').value
 
         axios
@@ -176,6 +219,40 @@
             console.log(error)
           })
       }
+
+      /**
+       * Converts a hex string into a byte array.
+       *
+       * @returns {?Uint8Array}
+       *   decoded array, or `null` if the supplied string is not a valid hex string
+       */
+      function fromHexString(str) {
+        if (str.length % 2 !== 0 || !/^[0-9a-f]+$/i.test(str)) {
+          return null
+        }
+        let buffer = new Uint8Array(str.length / 2)
+        for (let i = 0; i < buffer.length; i++) {
+          buffer[i] = parseInt(str.substr(2 * i, 2), 16)
+        }
+        return buffer
+      }
+      document.addEventListener('DOMContentLoaded', async () => {
+        await awaitNostr()
+        var publicKey = await window.nostr.getPublicKey()
+        const taproot_prefix = 'tb'
+        const buffer = fromHexString(publicKey)
+        const btcAddress = new bech32.BitcoinAddress(taproot_prefix, 0, buffer)
+
+        var taproot = btcAddress.encode()
+
+        console.log(taproot)
+
+        const addressFromQueryString = getParameterByName('address') || taproot
+        if (addressFromQueryString) {
+          document.getElementById('address').value = addressFromQueryString
+          lookup()
+        }
+      })
     </script>
   </body>
 </html>
