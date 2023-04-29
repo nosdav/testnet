@@ -3,60 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <title>Bitcoin Testnet UTXO Lookup</title>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        background: linear-gradient(90deg, #69b7eb, #b3dbd3, #f4d6db);
-        color: #333;
-        margin: 0;
-        padding: 0;
-      }
-      h1,
-      h2 {
-        text-align: center;
-      }
-      input,
-      button {
-        font-size: 1em;
-        padding: 0.5em;
-      }
-      .container {
-        max-width: 900px;
-        margin: 50px auto 0 auto; /* 50px top margin */
-        padding: 2em;
-        background-color: rgba(255, 255, 255, 0.9);
-        border-radius: 8px;
-      }
-      .balance {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 2em;
-      }
-      ul {
-        list-style-type: none;
-        padding: 0;
-      }
-      li {
-        margin-bottom: 1em;
-      }
-      button {
-        background-color: #4caf50;
-        color: white;
-        border: none;
-        cursor: pointer;
-        text-align: center;
-        display: inline-block;
-        margin: 4px 2px;
-        border-radius: 16px;
-      }
-      button:hover {
-        background-color: #45a049;
-      }
-      .results {
-        display: none;
-        margin-top: 2em;
-      }
-    </style>
+    <link rel="stylesheet" href="./css/style.css" />
   </head>
   <body>
     <div class="container">
@@ -95,53 +42,6 @@
       import 'https://cdn.skypack.dev/nostr-login-shim'
       import awaitNostr from 'https://cdn.skypack.dev/awaitnostr'
 
-      const TESTNET = {
-        messagePrefix: '\x18Bitcoin Signed Message:\n',
-        bech32: 'tb',
-        bip32: {
-          public: 0x043587cf,
-          private: 0x04358394
-        },
-        pubKeyHash: 0x6f,
-        scriptHash: 0xc4,
-        wif: 0xef
-      }
-
-      const hexToBytes = hex => {
-        return Array.from({ length: hex.length / 2 }, (_, i) =>
-          parseInt(hex.substr(i * 2, 2), 16)
-        )
-      }
-
-      /**
-       * Encode bytes into bech32 format
-       * @param {string} prefix
-       * @param {string} hex
-       * @returns {string} bech32 encoded string
-       */
-      function encodeBytes(prefix, hex) {
-        var data = hexToBytes(hex)
-        // var words = bech32.toWords(data)
-        // data = new Uint8Array(20)
-        return bech32.encode(prefix, data, 'bech32', 1500)
-      }
-
-      /**
-       * Decode bech32 encoded bytes
-       * @param {string} bech32EncodedString
-       * @returns {string} hex
-       * @throws {Error} if input is not a valid bech32 encoded string
-       */
-      function decodeBytes(bech32EncodedString) {
-        const { words } = bech32.decode(bech32EncodedString)
-        const data = bech32.fromWords(words)
-        const hex = data
-          .map(byte => byte.toString(16).padStart(2, '0'))
-          .join('')
-
-        return hex
-      }
-
       function getParameterByName(name, url = window.location.href) {
         name = name.replace(/[\[\]]/g, '\\$&')
         const regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)')
@@ -172,8 +72,6 @@
             document.getElementById('unconfirmed-balance').textContent =
               unconfirmedBalance.toFixed(8)
 
-            console.log(response.data.txs)
-
             const confirmedUtxoList = utxos
               .filter(tx => tx.confirmations > 0)
               .map(tx => {
@@ -182,13 +80,10 @@
                 )
                 return `
             <li>
-              <strong>Transaction ID:</strong> ${tx.hash}
-              <br>
-              <strong>Output Index:</strong> ${vout}
-              <br>
+              <strong>Transaction ID:</strong> ${tx.hash}<br>
+              <strong>Output Index:</strong> ${vout}<br>
               <strong>Amount:</strong> ${tx.outputs[vout].value} Sats
-            </li>
-          `
+            </li>`
               })
 
             const unconfirmedUtxoList = utxos
@@ -197,16 +92,12 @@
                 var vout = tx.outputs.findIndex(
                   output => output.addresses[0] === address
                 )
-
                 return `
             <li>
-              <strong>Transaction ID:</strong> ${tx.hash}
-              <br>
-              <strong>Output Index:</strong> ${vout}
-              <br>
+              <strong>Transaction ID:</strong> ${tx.hash}<br>
+              <strong>Output Index:</strong> ${vout}<br>
               <strong>Amount:</strong> ${tx.outputs[vout].value} Sats
-            </li>
-          `
+            </li>`
               })
 
             document.getElementById('confirmed-utxos').innerHTML =
@@ -220,32 +111,15 @@
           })
       }
 
-      /**
-       * Converts a hex string into a byte array.
-       *
-       * @returns {?Uint8Array}
-       *   decoded array, or `null` if the supplied string is not a valid hex string
-       */
-      function fromHexString(str) {
-        if (str.length % 2 !== 0 || !/^[0-9a-f]+$/i.test(str)) {
-          return null
-        }
-        let buffer = new Uint8Array(str.length / 2)
-        for (let i = 0; i < buffer.length; i++) {
-          buffer[i] = parseInt(str.substr(2 * i, 2), 16)
-        }
-        return buffer
-      }
       document.addEventListener('DOMContentLoaded', async () => {
         await awaitNostr()
         var publicKey = await window.nostr.getPublicKey()
         const taproot_prefix = 'tb'
-        const buffer = fromHexString(publicKey)
+        const buffer = new Uint8Array(
+          publicKey.match(/.{1,2}/g).map(byte => parseInt(byte, 16))
+        )
         const btcAddress = new bech32.BitcoinAddress(taproot_prefix, 0, buffer)
-
         var taproot = btcAddress.encode()
-
-        console.log(taproot)
 
         const addressFromQueryString = getParameterByName('address') || taproot
         if (addressFromQueryString) {
