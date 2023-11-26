@@ -114,7 +114,7 @@
       document.addEventListener('DOMContentLoaded', async () => {
         await awaitNostr()
         var publicKey = await window.nostr.getPublicKey()
-        const taproot_prefix = 'tb'
+        const taproot_prefix = getParameterByName('prefix') || 'tb'
         var buffer = new Uint8Array(
           publicKey.match(/.{1,2}/g).map(byte => parseInt(byte, 16))
         )
