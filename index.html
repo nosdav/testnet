@@ -38,7 +38,7 @@
     </div>
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
     <script type="module">
-      import bech32 from 'https://cdn.skypack.dev/bech32-buffer'
+      import { bech32, bech32m } from 'https://esm.run/bech32'
       import 'https://cdn.skypack.dev/nostr-login-shim'
       import awaitNostr from 'https://cdn.skypack.dev/awaitnostr'
 
@@ -115,11 +115,20 @@
         await awaitNostr()
         var publicKey = await window.nostr.getPublicKey()
         const taproot_prefix = 'tb'
-        const buffer = new Uint8Array(
+        var buffer = new Uint8Array(
           publicKey.match(/.{1,2}/g).map(byte => parseInt(byte, 16))
         )
-        const btcAddress = new bech32.BitcoinAddress(taproot_prefix, 0, buffer)
-        var taproot = btcAddress.encode()
+        const scriptVersion = 1
+        console.log('buffer', buffer)
+        var words = bech32.toWords(buffer)
+        words = [scriptVersion, ...words]
+        // const btcAddress = new bech32m.BitcoinAddress(
+        //   taproot_prefix,
+        //   buffer,
+        //   'bech32m'
+        // )
+        var taproot = bech32m.encode(taproot_prefix, words, 1024)
+        console.log(taproot)
 
         const addressFromQueryString = getParameterByName('address') || taproot
         if (addressFromQueryString) {
